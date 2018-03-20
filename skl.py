@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-"""This program logs all keystrokes sent to and from ssh and
+"""This program logs all hamdi keystrokes sent to and from ssh and
 sshd.  It does this by attaching strace to a ssh process and parsing out the
 keystrokes."""
 
